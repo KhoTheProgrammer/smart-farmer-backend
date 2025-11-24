@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.gis',  # GeoDjango
     'rest_framework',
+    'rest_framework_gis',  # GeoJSON support for REST framework
     'locations',  # Location models and services
     'weather',  # Weather data integration
 ]
