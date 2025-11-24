@@ -1,0 +1,71 @@
+{
+  "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "EPSG:4326"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kauma",
+        "name_chichewa": "Kauma",
+        "district": "Lilongwe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [33.85, -13.85]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Area 25",
+        "name_chichewa": "Area 25",
+        "district": "Lilongwe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [33.78, -13.95]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ndirande",
+        "name_chichewa": "Ndirande",
+        "district": "Blantyre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [35.0, -15.8]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Limbe",
+        "name_chichewa": "Limbe",
+        "district": "Blantyre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [35.05, -15.75]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ekwendeni",
+        "name_chichewa": "Ekwendeni",
+        "district": "Mzimba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [33.65, -11.55]
+      }
+    }
+  ]
+}

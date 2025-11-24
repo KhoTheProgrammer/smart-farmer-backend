@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Test District",
+        "name_chichewa": "Test District"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [33.0, -14.0],
+            [33.5, -14.0],
+            [33.5, -13.5],
+            [33.0, -13.5],
+            [33.0, -14.0]
+          ]
+        ]
+      }
+    }
+  ]
+}
