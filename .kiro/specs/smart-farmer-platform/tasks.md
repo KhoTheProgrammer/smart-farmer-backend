@@ -149,14 +149,14 @@
   - Store elevation in Village model
   - _Requirements: 3.3, 5.3_
 
-- [ ] 9. Create crop database
+- [x] 9. Create crop database
 
   - Create Crop model with soil, climate, and elevation requirements
   - Add common Malawian crops (maize, tobacco, groundnuts, beans, cassava, sweet potato)
   - Include Chichewa translations for crop names
   - _Requirements: 3.4, 3.5, 3.6, 7.2, 7.3_
 
-- [ ] 10. Implement crop suitability calculations
+- [x] 10. Implement crop suitability calculations
 
   - Create CropSuitabilityService
   - Implement suitability scoring algorithm
@@ -179,7 +179,7 @@
   - **Property 13: Crop result completeness**
   - **Validates: Requirements 3.6**
 
-- [ ] 11. Create REST API endpoints
+- [x] 11. Create REST API endpoints
 
   - Implement location endpoints (districts, villages, reverse geocode)
   - Implement planting calendar endpoint
@@ -198,7 +198,7 @@
   - **Property 29: Query performance monitoring**
   - **Validates: Requirements 8.5**
 
-- [ ] 12. Checkpoint - Ensure all backend API endpoints work correctly
+- [x] 12. Checkpoint - Ensure all backend API endpoints work correctly
 
   - Ensure all tests pass, ask the user if questions arise.
 
