@@ -797,3 +797,383 @@ class SoilServiceTest(TestCase):
         self.assertIn('sand_content', cache.data)
         self.assertIn('ph_level', cache.data)
         self.assertIn('organic_carbon', cache.data)
+
+
+
+class CropSuitabilityServiceTest(TestCase):
+    """
+    Test cases for CropSuitabilityService.
+    Validates: Requirements 3.4, 3.5, 3.6
+    """
+    
+    def setUp(self):
+        """Set up test data."""
+        from locations.models import District, Village
+        from django.contrib.gis.geos import Point, MultiPolygon, Polygon
+        from .models import Crop
+        
+        # Create test district
+        boundary = MultiPolygon(Polygon(((33.0, -14.0), (34.0, -14.0), (34.0, -13.0), (33.0, -13.0), (33.0, -14.0))))
+        self.district = District.objects.create(
+            name="Test District",
+            name_chichewa="Test District CH",
+            boundary=boundary,
+            centroid=Point(33.5, -13.5)
+        )
+        
+        # Create test village
+        self.village = Village.objects.create(
+            name="Test Village",
+            name_chichewa="Test Village CH",
+            district=self.district,
+            location=Point(33.77, -13.96),
+            elevation=1200.0
+        )
+        
+        # Create test crops
+        self.maize = Crop.objects.create(
+            name="Maize",
+            name_chichewa="Chimanga",
+            scientific_name="Zea mays",
+            min_ph=5.5,
+            max_ph=7.5,
+            min_clay_content=15.0,
+            max_clay_content=40.0,
+            min_organic_carbon=1.0,
+            min_rainfall=500.0,
+            max_rainfall=1200.0,
+            min_temperature=18.0,
+            max_temperature=32.0,
+            min_elevation=500.0,
+            max_elevation=2000.0,
+            growing_season_days=120
+        )
+        
+        self.tobacco = Crop.objects.create(
+            name="Tobacco",
+            name_chichewa="Fodya",
+            scientific_name="Nicotiana tabacum",
+            min_ph=5.0,
+            max_ph=6.5,
+            min_clay_content=10.0,
+            max_clay_content=30.0,
+            min_organic_carbon=1.5,
+            min_rainfall=800.0,
+            max_rainfall=1500.0,
+            min_temperature=20.0,
+            max_temperature=30.0,
+            min_elevation=800.0,
+            max_elevation=1800.0,
+            growing_season_days=90
+        )
+    
+    def test_calculate_range_score_within_range(self):
+        """Test range score calculation for values within acceptable range."""
+        from .services import CropSuitabilityService
+        
+        # Value at midpoint should score 100
+        score = CropSuitabilityService._calculate_range_score(6.0, 5.0, 7.0, optimal_range=0.5)
+        self.assertEqual(score, 100.0)
+        
+        # Value within optimal range should score 100
+        score = CropSuitabilityService._calculate_range_score(6.3, 5.0, 7.0, optimal_range=0.5)
+        self.assertEqual(score, 100.0)
+        
+        # Value within acceptable range but outside optimal should score >= 70
+        score = CropSuitabilityService._calculate_range_score(5.2, 5.0, 7.0, optimal_range=0.5)
+        self.assertGreaterEqual(score, 70.0)
+        self.assertLess(score, 100.0)
+    
+    def test_calculate_range_score_outside_range(self):
+        """Test range score calculation for values outside acceptable range."""
+        from .services import CropSuitabilityService
+        
+        # Value below minimum should score < 50
+        score = CropSuitabilityService._calculate_range_score(4.0, 5.0, 7.0)
+        self.assertLess(score, 50.0)
+        self.assertGreaterEqual(score, 0.0)
+        
+        # Value above maximum should score < 50
+        score = CropSuitabilityService._calculate_range_score(8.0, 5.0, 7.0)
+        self.assertLess(score, 50.0)
+        self.assertGreaterEqual(score, 0.0)
+    
+    def test_calculate_soil_score(self):
+        """Test soil suitability score calculation."""
+        from .services import CropSuitabilityService
+        
+        # Ideal soil conditions for maize
+        soil_data = {
+            'ph_level': 6.5,  # Midpoint of 5.5-7.5
+            'clay_content': 27.5,  # Midpoint of 15-40
+            'organic_carbon': 2.0  # Above minimum of 1.0
+        }
+        
+        score = CropSuitabilityService._calculate_soil_score(self.maize, soil_data)
+        
+        # Should score high with ideal conditions
+        self.assertGreater(score, 80.0)
+        self.assertLessEqual(score, 100.0)
+    
+    def test_calculate_elevation_score(self):
+        """Test elevation suitability score calculation."""
+        from .services import CropSuitabilityService
+        
+        # Ideal elevation for maize (midpoint of 500-2000)
+        score = CropSuitabilityService._calculate_elevation_score(self.maize, 1250.0)
+        self.assertGreater(score, 90.0)
+        
+        # Elevation within range but not optimal
+        score = CropSuitabilityService._calculate_elevation_score(self.maize, 600.0)
+        self.assertGreater(score, 70.0)
+        
+        # Elevation outside range
+        score = CropSuitabilityService._calculate_elevation_score(self.maize, 300.0)
+        self.assertLess(score, 50.0)
+    
+    def test_calculate_climate_score(self):
+        """Test climate suitability score calculation."""
+        from .services import CropSuitabilityService
+        
+        # Ideal climate for maize
+        climate_data = {
+            'annual_rainfall': 850.0,  # Within 500-1200
+            'mean_temperature': 25.0  # Within 18-32
+        }
+        
+        score = CropSuitabilityService._calculate_climate_score(self.maize, climate_data)
+        self.assertGreater(score, 80.0)
+        self.assertLessEqual(score, 100.0)
+    
+    def test_calculate_suitability_with_all_factors(self):
+        """Test overall suitability calculation with all factors."""
+        from .services import CropSuitabilityService
+        
+        soil_data = {
+            'ph_level': 6.5,
+            'clay_content': 27.5,
+            'organic_carbon': 2.0
+        }
+        
+        climate_data = {
+            'annual_rainfall': 850.0,
+            'mean_temperature': 25.0
+        }
+        
+        score = CropSuitabilityService.calculate_suitability(
+            self.maize,
+            soil_data,
+            1250.0,  # elevation
+            climate_data
+        )
+        
+        # With ideal conditions, should score high
+        self.assertGreater(score, 80.0)
+        self.assertLessEqual(score, 100.0)
+    
+    def test_calculate_suitability_without_climate(self):
+        """Test suitability calculation without climate data."""
+        from .services import CropSuitabilityService
+        
+        soil_data = {
+            'ph_level': 6.5,
+            'clay_content': 27.5,
+            'organic_carbon': 2.0
+        }
+        
+        score = CropSuitabilityService.calculate_suitability(
+            self.maize,
+            soil_data,
+            1250.0,  # elevation
+            None  # no climate data
+        )
+        
+        # Should still calculate score based on soil and elevation
+        self.assertGreater(score, 0.0)
+        self.assertLessEqual(score, 100.0)
+    
+    def test_calculate_suitability_poor_conditions(self):
+        """Test suitability calculation with poor conditions."""
+        from .services import CropSuitabilityService
+        
+        # Poor soil conditions for maize
+        soil_data = {
+            'ph_level': 4.0,  # Too acidic
+            'clay_content': 5.0,  # Too sandy
+            'organic_carbon': 0.3  # Too low
+        }
+        
+        score = CropSuitabilityService.calculate_suitability(
+            self.maize,
+            soil_data,
+            300.0,  # Too low elevation
+            None
+        )
+        
+        # Should score low with poor conditions
+        self.assertLess(score, 50.0)
+        self.assertGreaterEqual(score, 0.0)
+    
+    def test_get_crop_requirements(self):
+        """Test retrieving crop requirements."""
+        from .services import CropSuitabilityService
+        
+        requirements = CropSuitabilityService.get_crop_requirements(str(self.maize.id))
+        
+        # Verify structure
+        self.assertIn('name', requirements)
+        self.assertIn('name_chichewa', requirements)
+        self.assertIn('scientific_name', requirements)
+        self.assertIn('soil_requirements', requirements)
+        self.assertIn('climate_requirements', requirements)
+        self.assertIn('elevation_requirements', requirements)
+        self.assertIn('growing_season_days', requirements)
+        
+        # Verify values
+        self.assertEqual(requirements['name'], 'Maize')
+        self.assertEqual(requirements['name_chichewa'], 'Chimanga')
+        self.assertEqual(requirements['soil_requirements']['min_ph'], 5.5)
+        self.assertEqual(requirements['soil_requirements']['max_ph'], 7.5)
+    
+    def test_get_crop_requirements_not_found(self):
+        """Test error handling when crop not found."""
+        from .services import CropSuitabilityService, CropSuitabilityServiceError
+        import uuid
+        
+        with self.assertRaises(CropSuitabilityServiceError) as context:
+            CropSuitabilityService.get_crop_requirements(str(uuid.uuid4()))
+        
+        self.assertIn("not found", str(context.exception))
+    
+    @patch('weather.services.SoilService.fetch_soil_properties')
+    def test_rank_crops(self, mock_fetch_soil):
+        """Test ranking crops by suitability."""
+        from .services import CropSuitabilityService
+        from .models import Crop
+        
+        # Mock soil data
+        mock_fetch_soil.return_value = {
+            'ph_level': 6.0,
+            'clay_content': 25.0,
+            'organic_carbon': 1.5
+        }
+        
+        # Rank crops for village
+        results = CropSuitabilityService.rank_crops(self.village)
+        
+        # Verify results structure
+        self.assertIsInstance(results, list)
+        # Should have results for all crops in database (including migration-added crops)
+        total_crops = Crop.objects.count()
+        self.assertEqual(len(results), total_crops)
+        
+        # Verify each result has required fields
+        for result in results:
+            self.assertIn('crop_id', result)
+            self.assertIn('name', result)
+            self.assertIn('name_chichewa', result)
+            self.assertIn('scientific_name', result)
+            self.assertIn('suitability_score', result)
+            self.assertIn('soil_requirements', result)
+            self.assertIn('elevation_requirements', result)
+            
+            # Verify score is valid
+            self.assertGreaterEqual(result['suitability_score'], 0.0)
+            self.assertLessEqual(result['suitability_score'], 100.0)
+        
+        # Verify results are sorted by score (highest first)
+        scores = [r['suitability_score'] for r in results]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+    
+    @patch('weather.services.SoilService.fetch_soil_properties')
+    def test_rank_crops_with_district(self, mock_fetch_soil):
+        """Test ranking crops using district centroid."""
+        from .services import CropSuitabilityService
+        
+        # Mock soil data
+        mock_fetch_soil.return_value = {
+            'ph_level': 6.0,
+            'clay_content': 25.0,
+            'organic_carbon': 1.5
+        }
+        
+        # Rank crops for district (no elevation)
+        results = CropSuitabilityService.rank_crops(self.district)
+        
+        # Should still work with default elevation
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+    
+    @patch('weather.services.SoilService.fetch_soil_properties')
+    def test_rank_crops_with_provided_soil_data(self, mock_fetch_soil):
+        """Test ranking crops with pre-fetched soil data."""
+        from .services import CropSuitabilityService
+        
+        soil_data = {
+            'ph_level': 6.0,
+            'clay_content': 25.0,
+            'organic_carbon': 1.5
+        }
+        
+        # Rank crops with provided soil data
+        results = CropSuitabilityService.rank_crops(self.village, soil_data=soil_data)
+        
+        # Should not call API since we provided data
+        mock_fetch_soil.assert_not_called()
+        
+        # Should still return valid results
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+    
+    @patch('weather.services.SoilService.fetch_soil_properties')
+    def test_rank_crops_soil_fetch_error(self, mock_fetch_soil):
+        """Test error handling when soil data fetch fails."""
+        from .services import CropSuitabilityService, CropSuitabilityServiceError, SoilServiceError
+        
+        # Mock soil service error
+        mock_fetch_soil.side_effect = SoilServiceError("API unavailable")
+        
+        with self.assertRaises(CropSuitabilityServiceError) as context:
+            CropSuitabilityService.rank_crops(self.village)
+        
+        self.assertIn("Failed to fetch soil data", str(context.exception))
+    
+    def test_rank_crops_no_crops_in_database(self):
+        """Test ranking when no crops exist in database."""
+        from .services import CropSuitabilityService
+        from .models import Crop
+        
+        # Delete all crops
+        Crop.objects.all().delete()
+        
+        soil_data = {
+            'ph_level': 6.0,
+            'clay_content': 25.0,
+            'organic_carbon': 1.5
+        }
+        
+        # Should return empty list
+        results = CropSuitabilityService.rank_crops(self.village, soil_data=soil_data)
+        self.assertEqual(results, [])
+    
+    def test_suitability_score_bounds(self):
+        """Test that suitability scores are always between 0 and 100."""
+        from .services import CropSuitabilityService
+        
+        # Test with extreme values
+        extreme_soil = {
+            'ph_level': 10.0,  # Very high
+            'clay_content': 90.0,  # Very high
+            'organic_carbon': 0.01  # Very low
+        }
+        
+        score = CropSuitabilityService.calculate_suitability(
+            self.maize,
+            extreme_soil,
+            5000.0,  # Very high elevation
+            None
+        )
+        
+        # Score should still be bounded
+        self.assertGreaterEqual(score, 0.0)
+        self.assertLessEqual(score, 100.0)
