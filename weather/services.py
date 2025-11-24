@@ -530,6 +530,407 @@ class PlantingCalendarService:
         return windows
 
 
+class CropSuitabilityServiceError(Exception):
+    """Custom exception for crop suitability service errors."""
+    pass
+
+
+class CropSuitabilityService:
+    """
+    Service class for calculating crop suitability scores.
+    Analyzes soil, elevation, and climate data to rank crops by suitability.
+    
+    Validates: Requirements 3.4, 3.5, 3.6
+    """
+    
+    @classmethod
+    def calculate_suitability(
+        cls,
+        crop,
+        soil_data: Dict,
+        elevation: float,
+        climate_data: Optional[Dict] = None
+    ) -> float:
+        """
+        Calculate suitability score for a specific crop based on location conditions.
+        
+        Args:
+            crop: Crop model instance
+            soil_data: Dictionary with clay_content, sand_content, ph_level, organic_carbon
+            elevation: Elevation in meters
+            climate_data: Optional dictionary with rainfall and temperature data
+            
+        Returns:
+            Suitability score between 0 and 100
+            
+        Validates: Requirements 3.4
+        """
+        # Calculate individual component scores
+        soil_score = cls._calculate_soil_score(crop, soil_data)
+        elevation_score = cls._calculate_elevation_score(crop, elevation)
+        
+        # If climate data is available, include it in the calculation
+        if climate_data:
+            climate_score = cls._calculate_climate_score(crop, climate_data)
+            # Weighted average: soil 40%, elevation 30%, climate 30%
+            total_score = (soil_score * 0.4) + (elevation_score * 0.3) + (climate_score * 0.3)
+        else:
+            # Without climate data: soil 60%, elevation 40%
+            total_score = (soil_score * 0.6) + (elevation_score * 0.4)
+        
+        # Ensure score is between 0 and 100
+        return max(0.0, min(100.0, total_score))
+    
+    @classmethod
+    def _calculate_soil_score(cls, crop, soil_data: Dict) -> float:
+        """
+        Calculate soil suitability score based on pH, clay content, and organic carbon.
+        
+        Args:
+            crop: Crop model instance
+            soil_data: Dictionary with soil properties
+            
+        Returns:
+            Soil score between 0 and 100
+        """
+        ph = soil_data.get('ph_level', 0)
+        clay = soil_data.get('clay_content', 0)
+        organic_carbon = soil_data.get('organic_carbon', 0)
+        
+        # Calculate pH score
+        ph_score = cls._calculate_range_score(
+            ph,
+            crop.min_ph,
+            crop.max_ph,
+            optimal_range=0.5  # pH within 0.5 of ideal is optimal
+        )
+        
+        # Calculate clay content score
+        clay_score = cls._calculate_range_score(
+            clay,
+            crop.min_clay_content,
+            crop.max_clay_content,
+            optimal_range=5.0  # Within 5% of ideal is optimal
+        )
+        
+        # Calculate organic carbon score (higher is generally better, but check minimum)
+        if organic_carbon >= crop.min_organic_carbon:
+            # Score based on how much above minimum
+            oc_score = min(100.0, 70.0 + (organic_carbon - crop.min_organic_carbon) * 3)
+        else:
+            # Penalize if below minimum
+            oc_score = (organic_carbon / crop.min_organic_carbon) * 70.0
+        
+        # Weighted average: pH 40%, clay 35%, organic carbon 25%
+        soil_score = (ph_score * 0.4) + (clay_score * 0.35) + (oc_score * 0.25)
+        
+        return soil_score
+    
+    @classmethod
+    def _calculate_elevation_score(cls, crop, elevation: float) -> float:
+        """
+        Calculate elevation suitability score.
+        
+        Args:
+            crop: Crop model instance
+            elevation: Elevation in meters
+            
+        Returns:
+            Elevation score between 0 and 100
+        """
+        return cls._calculate_range_score(
+            elevation,
+            crop.min_elevation,
+            crop.max_elevation,
+            optimal_range=100.0  # Within 100m of ideal is optimal
+        )
+    
+    @classmethod
+    def _calculate_climate_score(cls, crop, climate_data: Dict) -> float:
+        """
+        Calculate climate suitability score based on rainfall and temperature.
+        
+        Args:
+            crop: Crop model instance
+            climate_data: Dictionary with rainfall and temperature data
+            
+        Returns:
+            Climate score between 0 and 100
+        """
+        rainfall = climate_data.get('annual_rainfall', 0)
+        temperature = climate_data.get('mean_temperature', 0)
+        
+        # Calculate rainfall score
+        rainfall_score = cls._calculate_range_score(
+            rainfall,
+            crop.min_rainfall,
+            crop.max_rainfall,
+            optimal_range=100.0  # Within 100mm of ideal is optimal
+        )
+        
+        # Calculate temperature score
+        temp_score = cls._calculate_range_score(
+            temperature,
+            crop.min_temperature,
+            crop.max_temperature,
+            optimal_range=2.0  # Within 2°C of ideal is optimal
+        )
+        
+        # Weighted average: rainfall 60%, temperature 40%
+        climate_score = (rainfall_score * 0.6) + (temp_score * 0.4)
+        
+        return climate_score
+    
+    @classmethod
+    def _calculate_range_score(
+        cls,
+        value: float,
+        min_value: float,
+        max_value: float,
+        optimal_range: float = 0.0
+    ) -> float:
+        """
+        Calculate a score based on how well a value fits within a range.
+        
+        Args:
+            value: The actual value
+            min_value: Minimum acceptable value
+            max_value: Maximum acceptable value
+            optimal_range: Range around the midpoint considered optimal
+            
+        Returns:
+            Score between 0 and 100
+        """
+        # If value is outside the acceptable range, score is low
+        if value < min_value:
+            # Penalize based on how far below minimum
+            distance_below = min_value - value
+            range_size = max_value - min_value
+            penalty_factor = distance_below / range_size
+            return max(0.0, 50.0 - (penalty_factor * 50.0))
+        
+        if value > max_value:
+            # Penalize based on how far above maximum
+            distance_above = value - max_value
+            range_size = max_value - min_value
+            penalty_factor = distance_above / range_size
+            return max(0.0, 50.0 - (penalty_factor * 50.0))
+        
+        # Value is within acceptable range
+        midpoint = (min_value + max_value) / 2.0
+        distance_from_midpoint = abs(value - midpoint)
+        
+        # If within optimal range of midpoint, score is 100
+        if distance_from_midpoint <= optimal_range:
+            return 100.0
+        
+        # Otherwise, score decreases as we move away from midpoint
+        max_distance = (max_value - min_value) / 2.0
+        score = 100.0 - ((distance_from_midpoint - optimal_range) / max_distance) * 30.0
+        
+        return max(70.0, score)  # Minimum score of 70 if within range
+    
+    @classmethod
+    def get_crop_requirements(cls, crop_id: str) -> Dict:
+        """
+        Get the ideal conditions for a specific crop.
+        
+        Args:
+            crop_id: UUID of the crop
+            
+        Returns:
+            Dictionary containing crop requirements
+            
+        Raises:
+            CropSuitabilityServiceError: If crop not found
+            
+        Validates: Requirements 3.6
+        """
+        from .models import Crop
+        
+        try:
+            crop = Crop.objects.get(id=crop_id)
+        except Crop.DoesNotExist:
+            raise CropSuitabilityServiceError(f"Crop with id {crop_id} not found")
+        
+        return {
+            'name': crop.name,
+            'name_chichewa': crop.name_chichewa,
+            'scientific_name': crop.scientific_name,
+            'soil_requirements': {
+                'min_ph': crop.min_ph,
+                'max_ph': crop.max_ph,
+                'min_clay_content': crop.min_clay_content,
+                'max_clay_content': crop.max_clay_content,
+                'min_organic_carbon': crop.min_organic_carbon,
+            },
+            'climate_requirements': {
+                'min_rainfall': crop.min_rainfall,
+                'max_rainfall': crop.max_rainfall,
+                'min_temperature': crop.min_temperature,
+                'max_temperature': crop.max_temperature,
+            },
+            'elevation_requirements': {
+                'min_elevation': crop.min_elevation,
+                'max_elevation': crop.max_elevation,
+            },
+            'growing_season_days': crop.growing_season_days,
+        }
+    
+    @classmethod
+    def rank_crops(
+        cls,
+        location,
+        soil_data: Optional[Dict] = None,
+        climate_data: Optional[Dict] = None
+    ) -> List[Dict]:
+        """
+        Calculate suitability scores for all crops and return them ranked.
+        
+        Args:
+            location: Village or District model instance with location/centroid
+            soil_data: Optional pre-fetched soil data
+            climate_data: Optional pre-fetched climate data
+            
+        Returns:
+            List of dictionaries with crop info and suitability scores, sorted by score
+            
+        Validates: Requirements 3.4, 3.5, 3.6
+        """
+        from .models import Crop
+        
+        # Get location coordinates
+        if hasattr(location, 'location'):
+            # Village
+            lat = location.location.y
+            lon = location.location.x
+            elevation = location.elevation
+        elif hasattr(location, 'centroid'):
+            # District
+            lat = location.centroid.y
+            lon = location.centroid.x
+            elevation = None  # Districts don't have elevation
+        else:
+            raise CropSuitabilityServiceError("Invalid location object")
+        
+        # Fetch soil data if not provided
+        if soil_data is None:
+            try:
+                soil_data = SoilService.fetch_soil_properties(lat, lon)
+            except SoilServiceError as e:
+                logger.error(f"Failed to fetch soil data: {e}")
+                raise CropSuitabilityServiceError(f"Failed to fetch soil data: {str(e)}")
+        
+        # Use a default elevation if not available
+        if elevation is None:
+            elevation = 1000.0  # Default elevation for Malawi (approximate average)
+            logger.warning(f"No elevation data available, using default: {elevation}m")
+        
+        # Get all crops
+        crops = Crop.objects.all()
+        
+        if not crops.exists():
+            logger.warning("No crops found in database")
+            return []
+        
+        # Calculate suitability for each crop
+        results = []
+        for crop in crops:
+            try:
+                score = cls.calculate_suitability(
+                    crop,
+                    soil_data,
+                    elevation,
+                    climate_data
+                )
+                
+                results.append({
+                    'crop_id': str(crop.id),
+                    'name': crop.name,
+                    'name_chichewa': crop.name_chichewa,
+                    'scientific_name': crop.scientific_name,
+                    'suitability_score': round(score, 2),
+                    'soil_requirements': {
+                        'min_ph': crop.min_ph,
+                        'max_ph': crop.max_ph,
+                        'min_clay_content': crop.min_clay_content,
+                        'max_clay_content': crop.max_clay_content,
+                        'min_organic_carbon': crop.min_organic_carbon,
+                    },
+                    'elevation_requirements': {
+                        'min_elevation': crop.min_elevation,
+                        'max_elevation': crop.max_elevation,
+                    },
+                })
+            except Exception as e:
+                logger.error(f"Failed to calculate suitability for {crop.name}: {e}")
+                continue
+        
+        # Sort by suitability score (highest first)
+        results.sort(key=lambda x: x['suitability_score'], reverse=True)
+        
+        return results
+    
+    @classmethod
+    def generate_suitability_raster(
+        cls,
+        crop,
+        bounds: Dict,
+        resolution: float = 0.01
+    ) -> List[Dict]:
+        """
+        Generate a grid of suitability scores for map visualization.
+        
+        Args:
+            crop: Crop model instance
+            bounds: Dictionary with 'min_lat', 'max_lat', 'min_lon', 'max_lon'
+            resolution: Grid resolution in degrees (default 0.01 = ~1km)
+            
+        Returns:
+            List of dictionaries with lat, lon, and suitability_score
+            
+        Note: This is a simplified implementation for the 2-week project.
+        A production system would use raster processing libraries.
+        """
+        import numpy as np
+        
+        min_lat = bounds['min_lat']
+        max_lat = bounds['max_lat']
+        min_lon = bounds['min_lon']
+        max_lon = bounds['max_lon']
+        
+        # Create grid of points
+        lats = np.arange(min_lat, max_lat, resolution)
+        lons = np.arange(min_lon, max_lon, resolution)
+        
+        results = []
+        
+        # Calculate suitability for each grid point
+        # Note: This is simplified - in production, we'd batch API calls
+        for lat in lats:
+            for lon in lons:
+                try:
+                    # Fetch soil data for this point
+                    soil_data = SoilService.fetch_soil_properties(lat, lon)
+                    
+                    # Use default elevation (would need elevation raster in production)
+                    elevation = 1000.0
+                    
+                    # Calculate suitability
+                    score = cls.calculate_suitability(crop, soil_data, elevation)
+                    
+                    results.append({
+                        'lat': lat,
+                        'lon': lon,
+                        'suitability_score': round(score, 2)
+                    })
+                except Exception as e:
+                    logger.debug(f"Failed to calculate suitability for point ({lat}, {lon}): {e}")
+                    continue
+        
+        return results
+
+
 class SoilServiceError(Exception):
     """Custom exception for soil service errors."""
     pass
@@ -711,6 +1112,10 @@ class SoilService:
                     
                     if values:
                         mean_value = values.get('mean')
+                        
+                        # Skip if mean_value is None
+                        if mean_value is None:
+                            continue
                         
                         # Map property names and convert units
                         if property_name == 'clay':
