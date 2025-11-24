@@ -13,7 +13,7 @@
   - **Property 4: Coordinate retrieval validity**
   - **Validates: Requirements 1.4**
 
-- [ ] 2. Implement location models and services
+- [x] 2. Implement location models and services
 
   - Create District and Village models with spatial fields
   - Implement LocationService with district/village queries
@@ -40,7 +40,7 @@
   - **Property 28: Point-in-polygon accuracy**
   - **Validates: Requirements 8.4**
 
-- [ ] 3. Import administrative boundary data
+- [x] 3. Import administrative boundary data
 
   - Download Malawi boundaries from HDX
   - Create management command to import GeoJSON
@@ -58,7 +58,7 @@
   - **Property 18: Coordinate reference system validation**
   - **Validates: Requirements 5.4**
 
-- [ ] 4. Implement weather data integration
+- [x] 4. Implement weather data integration
 
   - Create WeatherCache model for caching
   - Implement WeatherService with NASA POWER API integration
@@ -96,7 +96,7 @@
   - **Property 22: API fallback behavior**
   - **Validates: Requirements 9.4**
 
-- [ ] 5. Implement planting calendar calculations
+- [x] 5. Implement planting calendar calculations
 
   - Create PlantingWindow model
   - Implement rainfall pattern analysis (10-year historical data)
@@ -119,11 +119,11 @@
   - **Property 8: Confidence level bounds**
   - **Validates: Requirements 2.5**
 
-- [ ] 6. Checkpoint - Ensure all backend core services are working
+- [x] 6. Checkpoint - Ensure all backend core services are working
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Implement soil data integration
+- [x] 7. Implement soil data integration
 
   - Create SoilCache model for caching
   - Implement SoilService with SoilGrids API integration
@@ -141,7 +141,7 @@
   - **Property 10: Soil property completeness**
   - **Validates: Requirements 3.2**
 
-- [ ] 8. Import elevation data
+- [x] 8. Import elevation data
 
   - Download SRTM elevation data for Malawi
   - Process raster files using GDAL
