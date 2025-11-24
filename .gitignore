@@ -44,3 +44,14 @@ staticfiles/
 # OS
 .DS_Store
 Thumbs.db
+
+# Data files (keep sample files, ignore large downloads)
+data/*.shp
+data/*.shx
+data/*.dbf
+data/*.prj
+data/*.cpg
+data/*.zip
+data/*_adm*.geojson
+!data/sample_*.geojson
+!data/README.md
