@@ -29,6 +29,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.gis',  # GeoDjango
     'rest_framework',
+    'locations',  # Location models and services
+    'weather',  # Weather data integration
 ]
 
 MIDDLEWARE = [
@@ -135,7 +137,11 @@ REST_FRAMEWORK = {
     }
 }
 
-# API Keys
+# External API Configuration
+NASA_POWER_API_URL = config(
+    'NASA_POWER_API_URL',
+    default='https://power.larc.nasa.gov/api/temporal/daily/point'
+)
 NASA_POWER_API_KEY = config('NASA_POWER_API_KEY', default='')
 SOILGRIDS_API_KEY = config('SOILGRIDS_API_KEY', default='')
 
