@@ -45,13 +45,31 @@ staticfiles/
 .DS_Store
 Thumbs.db
 
-# Data files (keep sample files, ignore large downloads)
+# Data files (keep sample/test files only, ignore large downloads)
+# Shapefiles and components
 data/*.shp
 data/*.shx
 data/*.dbf
+data/*.dbf.xml
 data/*.prj
 data/*.cpg
+data/*.sbn
+data/*.sbx
+data/*.shp.xml
+
+# Archives
 data/*.zip
-data/*_adm*.geojson
+data/*.tar.gz
+
+# Raster files
+data/*.tif
+
+# Large GeoJSON files (keep only sample/test files)
+data/malawi_*.geojson
+data/mwi_*.geojson
+
+# Keep these small files
 !data/sample_*.geojson
+!data/test_*.geojson
 !data/README.md
+!data/IMPORT_SUMMARY.md
