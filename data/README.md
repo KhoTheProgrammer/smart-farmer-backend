@@ -1,6 +1,6 @@
-# Administrative Boundary Data
+# Geospatial Data for Malawi
 
-This directory contains administrative boundary data for Malawi.
+This directory contains administrative boundary and elevation data for Malawi.
 
 ## Data Sources
 
@@ -165,3 +165,61 @@ Any errors or warnings will be displayed during import.
 
 - The import command will attempt to fix invalid geometries automatically
 - If this fails, you may need to clean the data using QGIS or another GIS tool
+
+---
+
+## Elevation Data (SRTM)
+
+### Data Source
+
+**Source:** OpenTopography  
+**URL:** https://opentopography.org/  
+**Dataset:** SRTM GL1 (30m resolution)  
+**Format:** GeoTIFF  
+**License:** Public Domain
+
+### Download Instructions
+
+1. Visit OpenTopography: https://opentopography.org/
+2. Go to "Data" → "Global & Regional DEMs"
+3. Select "SRTM GL1 (30m)" or "SRTM GL3 (90m)"
+4. Draw a bounding box around Malawi (approximately):
+   - North: -9.5°
+   - South: -17.5°
+   - West: 32.5°
+   - East: 36.0°
+5. Select output format: **GeoTIFF**
+6. Leave raster visualization options **unchecked** (we only need raw elevation data)
+7. Download the file (will be named something like `rasters_SRTMGL1.tar.gz`)
+8. Extract to this directory:
+   ```bash
+   tar -xzf rasters_SRTMGL1.tar.gz -C data/
+   ```
+
+### Import Elevation Data
+
+Once you have the SRTM GeoTIFF file, import elevations for all villages:
+
+```bash
+# Import elevation data for villages without elevation
+python manage.py import_elevation --raster data/output_SRTMGL1.tif
+
+# Update all villages (including those with existing elevation data)
+python manage.py import_elevation --raster data/output_SRTMGL1.tif --update-all
+
+# Use custom batch size for performance tuning
+python manage.py import_elevation --raster data/output_SRTMGL1.tif --batch-size 200
+```
+
+### Data Requirements
+
+- **Format:** GeoTIFF (.tif)
+- **CRS:** WGS84 (EPSG:4326)
+- **Resolution:** 30m (SRTM GL1) or 90m (SRTM GL3)
+- **Coverage:** Must cover Malawi's extent
+
+### Notes
+
+- The SRTM files are large (300-400MB) and are **not committed to Git**
+- Each developer/deployment needs to download the data separately
+- Elevation values are stored in the database after import, so the raster file is only needed during initial setup or updates
