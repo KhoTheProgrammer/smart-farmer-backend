@@ -155,12 +155,17 @@ class Command(BaseCommand):
             lon = village.location.x
             lat = village.location.y
             
-            # Transform coordinates to raster's coordinate system if needed
-            # SRTM data is typically in WGS84 (EPSG:4326), same as our data
+            # Get raster geotransform parameters
+            # geotransform = [origin_x, pixel_width, 0, origin_y, 0, pixel_height]
+            gt = raster.geotransform
+            origin_x = gt[0]
+            pixel_width = gt[1]
+            origin_y = gt[3]
+            pixel_height = gt[5]  # Usually negative
             
-            # Get pixel coordinates
-            # GDAL uses (x, y) which corresponds to (lon, lat)
-            pixel_x, pixel_y = raster.transform.inverse_transform(lon, lat)
+            # Calculate pixel coordinates manually
+            pixel_x = (lon - origin_x) / pixel_width
+            pixel_y = (lat - origin_y) / pixel_height
             
             # Check if coordinates are within raster bounds
             if (pixel_x < 0 or pixel_x >= raster.width or
