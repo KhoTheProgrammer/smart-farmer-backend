@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',  # GeoDjango
+    'corsheaders',  # CORS headers for frontend
     'rest_framework',
     'rest_framework_gis',  # GeoJSON support for REST framework
     'locations',  # Location models and services
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware (must be before CommonMiddleware)
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -148,3 +150,10 @@ SOILGRIDS_API_KEY = config('SOILGRIDS_API_KEY', default='')
 
 # Cache settings
 CACHE_TTL = 60 * 60 * 24  # 24 hours in seconds
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
+CORS_ALLOW_CREDENTIALS = True
