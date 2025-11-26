@@ -1,27 +1,16 @@
-services:
-  # PostgreSQL Database
-  - type: pserv
-    name: mlimi-wanzeru-db
-    env: docker
+databases:
+  - name: mlimi-wanzeru-db
+    databaseName: mlimi_wanzeru
+    user: mlimi_user
     plan: free
-    region: oregon
-    databases:
-      - name: mlimi_wanzeru
-        databaseName: mlimi_wanzeru
-        user: mlimi_user
-        postgresMajorVersion: 15
 
-  # Django Backend API
+services:
   - type: web
     name: mlimi-wanzeru-api
-    env: python
-    region: oregon
+    env: docker
     plan: free
-    buildCommand: "./build.sh"
-    startCommand: "gunicorn mlimi_wanzeru.wsgi:application"
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
       - key: DATABASE_URL
         fromDatabase:
           name: mlimi-wanzeru-db
@@ -29,8 +18,8 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
-        value: False
+        value: "False"
       - key: ALLOWED_HOSTS
-        value: .onrender.com
+        value: ".onrender.com"
       - key: NASA_POWER_API_URL
-        value: https://power.larc.nasa.gov/api/temporal/daily/point
+        value: "https://power.larc.nasa.gov/api/temporal/daily/point"
