@@ -1132,7 +1132,13 @@ class SoilService:
             missing_props = [prop for prop in required_props if prop not in soil_data]
             
             if missing_props:
-                raise ValueError(f"Missing soil properties in API response: {missing_props}")
+                # Use default values for Malawi when API returns null
+                logger.warning(f"Missing soil properties {missing_props}, using Malawi defaults")
+                defaults = cls._get_malawi_default_soil_properties()
+                for prop in missing_props:
+                    soil_data[prop] = defaults[prop]
+                soil_data['_using_defaults'] = True
+                soil_data['_default_reason'] = f"API returned null for: {missing_props}"
             
             # Add metadata
             soil_data['metadata'] = {
@@ -1147,6 +1153,22 @@ class SoilService:
             
         except (KeyError, TypeError, IndexError) as e:
             raise ValueError(f"Invalid API response structure: {str(e)}")
+    
+    @classmethod
+    def _get_malawi_default_soil_properties(cls) -> Dict:
+        """
+        Get default soil properties for Malawi when API data is unavailable.
+        These are typical values for Malawian agricultural soils.
+        
+        Returns:
+            Dictionary with default soil properties
+        """
+        return {
+            'clay_content': 25.0,  # % - typical for Malawian soils
+            'sand_content': 45.0,  # % - typical for Malawian soils
+            'ph_level': 6.0,       # Slightly acidic, typical for tropical soils
+            'organic_carbon': 1.5,  # g/kg - moderate organic matter
+        }
     
     @classmethod
     def _validate_coordinates(cls, lat: float, lon: float) -> bool:
